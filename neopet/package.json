@@ -1,0 +1,17 @@
+{
+  "name": "advent1",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "tsc && node index.js test.txt ",
+    "real": "tsc && node index.js input.txt --max-old-space-size=8000"
+  },
+  "author": "",
+  "type": "module",
+  "license": "ISC",
+  "dependencies": {
+    "@types/node": "^18.11.11",
+    "typescript": "^4.9.3"
+  }
+}

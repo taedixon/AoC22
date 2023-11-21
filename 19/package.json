@@ -1,0 +1,18 @@
+{
+  "name": "advent1",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "tsc && node index.js input.txt",
+    "test2a": "tsc && node index.js input2a.txt",
+    "test2b": "tsc && node index.js input2b.txt",
+    "test2c": "tsc && node index.js input2c.txt"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@types/node": "^18.11.11",
+    "typescript": "^4.9.3"
+  }
+}
