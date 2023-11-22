@@ -4,6 +4,11 @@ import { Worker, isMainThread, workerData, parentPort } from "node:worker_thread
 
 type Grid = number[][]
 
+enum WorkerMessageKind {
+	LOG,
+	ANSWER
+}
+
 export interface PlayPiece {
 	position: Point,
 	piece: PuzzlePiece
@@ -16,16 +21,25 @@ export interface PlayPieceSerial {
 
 let boardcount = 0
 
+const log_to_parent = (msg: string) => {
+	parentPort?.postMessage({
+		kind: WorkerMessageKind.LOG, 
+		value: `[${workerData.id}]  ${msg}`
+	})
+}
+
 const log_newboard = function() {
 	boardcount++
 	if ((boardcount % 100000) == 0) {
-		console.log(`Created ${boardcount} boards on ${workerData.id}`)
+		if (!isMainThread) {
+			log_to_parent(`Created ${boardcount} boards.`)
+		} else {
+			console.log(`Created ${boardcount} boards.`)
+		}
 	}
 }
 
 const worker_count = 8;
-
-
 
 export class Puzzle {
 	private currentState: PuzzleBoard;
@@ -50,42 +64,69 @@ export class Puzzle {
 		return true
 	}
 
+	spawn_workers = async () => {
+		let promises: Promise<string>[] = []
+		let workers: Worker[] = []
+		console.log(`Spawning ${worker_count} workers`);
+		for (let i = 0; i < worker_count; i++) {
+			promises.push(new Promise((resolve, reject) => {
+				const thread = new Worker("./index.js", {
+					workerData: {threads: worker_count, id: i, input: process.argv[2]}
+				})
+				workers.push(thread)
+				thread.on("message", msg => {
+						switch (msg.kind) {
+						case WorkerMessageKind.LOG:
+							console.log(msg.value)
+							break;
+						case WorkerMessageKind.ANSWER:
+							resolve(msg.value)
+							break;
+					}
+				})
+				thread.on("error", err => reject(err))
+			}))
+		}
+		const ans = await Promise.any(promises);
+		workers.forEach(w => w.terminate())
+		const deserialized = JSON.parse(ans) as PlayPieceSerial[]
+		return deserialized.map(p => ({position: p.position, piece: this.currentPieces.find(_p => _p.originalIndex == p.piece)!}))
+	}
+
+	start_worker = async () => {
+		log_to_parent(`Beginning search`)
+		let combi_index = 0
+		let combi_max = 1 << this.currentPieces.length
+		let report_step = 0.05
+		let next_report = report_step
+		for (const combi of Helper.makeCombinationIterator(this.currentPieces)) {
+			if ((combi_index % workerData.threads) == workerData.id) {
+				var ans = await this.try_solve_combination(combi)
+				if (ans.length > 0) {
+					log_to_parent(`Found answer, combi ${combi_index}`)
+					parentPort?.postMessage({
+						kind: WorkerMessageKind.ANSWER,
+						value: JSON.stringify(ans.map(pp => ({
+						position: pp.position,
+						piece: pp.piece.originalIndex
+					})))})
+				}
+			}
+			combi_index++
+			let progress = combi_index/combi_max
+			if (progress >= next_report) {
+				log_to_parent(`exhausted ${Math.floor(next_report*100)}% of the possible combinations.`)
+				next_report += report_step
+			}
+		}
+	}
+
 	solve = async (isOriginalBoard = false): Promise<PlayPiece[]> => {
 		if (isOriginalBoard) {
 			if (isMainThread) {
-				let promises: Promise<string>[] = []
-				let workers: Worker[] = []
-				console.log(`Spawning ${worker_count} workers`);
-				for (let i = 0; i < worker_count; i++) {
-					promises.push(new Promise((resolve, reject) => {
-						const thread = new Worker("./index.js", {
-							workerData: {threads: 4, id: i, input: process.argv[2]}
-						})
-						workers.push(thread)
-						thread.on("message", msg => resolve(msg))
-						thread.on("error", err => reject(err))
-					}))
-				}
-				const ans = await Promise.any(promises);
-				workers.forEach(w => w.terminate())
-				const deserialized = JSON.parse(ans) as PlayPieceSerial[]
-				return deserialized.map(p => ({position: p.position, piece: this.currentPieces.find(_p => _p.originalIndex == p.piece)!}))
+				return this.spawn_workers()
 			} else {
-				console.log(`Beginning search on ${workerData.id}`)
-				let combi_index = 0
-				for (const combi of Helper.makeCombinationIterator(this.currentPieces)) {
-					if ((combi_index % workerData.threads) == workerData.id) {
-						var ans = await this.try_solve_combination(combi)
-						if (ans.length > 0) {
-							console.log(`Found answer on thread ${workerData.id}, combi ${combi_index}`)
-							parentPort?.postMessage(JSON.stringify(ans.map(pp => ({
-								position: pp.position,
-								piece: pp.piece.originalIndex
-							}))))
-						}
-					}
-					combi_index++
-				}
+				await this.start_worker()
 			}
 		} else {
 			for (const combi of Helper.makeCombinationIterator(this.currentPieces)) {
