@@ -45,10 +45,16 @@ const moves  = processed_input.slice(1)
 .map((move, idx) => new PuzzlePiece(move, idx, board_x))
 
 /*
-let it = Helper.makeCombinationIterator([1, 2, 3])
+let it = Helper.makeIncreasingCombinationIterator([0, 1, 2])
 for (const combi of it) {
 	console.log(combi)
 }
+console.log("===")
+it = Helper.makeBitwiseCombinationIterator([0,1,2])
+for (const combi of it) {
+	console.log(combi)
+}
+process.exit(0)
 */
 
 //console.log(moves)

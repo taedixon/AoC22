@@ -99,7 +99,7 @@ export class Puzzle {
 		let combi_max = 1 << this.currentPieces.length
 		let report_step = 0.05
 		let next_report = report_step
-		for (const combi of Helper.makeCombinationIterator(this.currentPieces)) {
+		for (const combi of Helper.makeIncreasingCombinationIterator(this.currentPieces)) {
 			if ((combi_index % workerData.threads) == workerData.id) {
 				var ans = await this.try_solve_combination(combi)
 				if (ans.length > 0) {
@@ -129,7 +129,7 @@ export class Puzzle {
 				await this.start_worker()
 			}
 		} else {
-			for (const combi of Helper.makeCombinationIterator(this.currentPieces)) {
+			for (const combi of Helper.makeIncreasingCombinationIterator(this.currentPieces)) {
 				var ans = await this.try_solve_combination(combi)
 				if (ans.length > 0) {
 					return ans

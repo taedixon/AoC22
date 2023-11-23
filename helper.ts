@@ -83,7 +83,7 @@ export class Helper {
 		return array.map(row => row.join("")).join("\n")
 	}
 
-	static *makeCombinationIterator<T>(items: T[]) {
+	static *makeBitwiseCombinationIterator<T>(items: T[]) {
 		const bitmax = (1 << items.length)
 		if (bitmax > 1000) {
 			console.log(`Iterating ${bitmax} combinations`)
@@ -92,5 +92,31 @@ export class Helper {
 			yield items.filter((_, i) => ((1<<(i)) & mask) != 0)
 		}
 		return []
+	}
+
+	static *makeIncreasingCombinationIterator<T>(items: T[]): Generator<Array<T>> {
+		let pick = [0]
+		let n_item = items.length
+		yield []
+		while (pick.length <= n_item) {
+			yield Array.from(pick.map((i) => items[i]))
+			let position = pick.length-1
+			while (position >= 0) {
+				var pos_limit = position + n_item-pick.length
+				//console.log(`[${pick}]::${pos_limit}`)
+				if (pick[position] < pos_limit) {
+					pick[position] = pick[position] + 1
+					while ((++position) < pick.length) {
+						pick[position] = pick[position-1]+1
+					}
+					break
+				}
+				position--
+			}
+			if (position < 0) {
+				pick.push(0)
+				pick = pick.map((_, i) => i)
+			}
+		}
 	}
 }
